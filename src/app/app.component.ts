@@ -25,16 +25,16 @@ export class AppComponent implements OnInit {
 
   readonly labelTitle = 'Formsの結果を出席簿に集約する';
   readonly labelAboutExplains = [
-    'このWebアプリケーション（以下，アプリ）は，Microsoft 365のFormsから得られるエクセルファイルを１つのファイルにまとめ，出欠簿を作成します。',
-    'エクセルファイルの「メール」・「開始時刻」・「名前」・「合計得点」を抽出し，集計します。',
-    '受講者（ユーザー）は，Microsoft 365にログインしていることが必須です。「anonymous」は集計しません。',
-    'アプリは端末内だけで処理が行われ，あなたや受講生の記録がどこかに送られることはありません。',
-    'アプリはサーバーの無料枠で運用しています。利用者が多くなった場合，利用ができないかもしれません。その場合は月が変わってからお試しください。',
+    'このWebアプリケーション（以下，アプリ）は，Microsoft 365のFormsから得られたエクセルファイルを１つのファイルにまとめ，出欠簿を作成します。',
+    'エクセルファイルの「メール」・「名前」・「開始時刻」・「合計得点」列を抽出し，集約・集計します。',
+    'Microsoft 365にログインしていない受講者（メール列が「anonymous」になっている受講生）の記録は集計しません。',
+    'アプリは端末内だけで処理が行われますので，あなたや受講生の記録がどこかに送られることは決してありません。',
+    'アプリはサーバーの無料枠で運用しています。利用者が多くなった場合，無料枠を超過して利用ができないかもしれません。その場合は月が変わってから再度お試しください。',
   ];
   readonly labelHowToTitle = '使い方';
   readonly labelHowToExplains = [
     '以下の欄を通じて，クリックかドラッグでMicrosoft 365のFormsから得られたエクセルファイルを選択・投入します。投入されたファイルは最下部にリスト化されます。',
-    '遅刻の時刻を設定したい場合は，右側の日時・時間用の入力欄をクリックして，日時を設定してください。設定された日時自体は「遅刻ではない」と判定されます。',
+    '遅刻の時刻を設定したい場合は，右側の日時・時間用の入力欄をクリックして，日時を設定してください。入力された日時自体は「遅刻ではない」と判定されます。設定がない場合，すべての記録が認められます。',
   ];
   readonly labelStartTime = '開始時刻';
   readonly labelMail = 'メール';
@@ -186,10 +186,10 @@ export class AppComponent implements OnInit {
               } else {
                 cd.add(1, 'days');
               }
-              console.log(at[this.labelStartTime]);
+              // console.log(at[this.labelStartTime]);
               const start = moment(at[this.labelStartTime], 'MM/DD/YY HH:mm:ss');
-              console.log(cd.format('YYYY-MM-DD HH:mm:ss'));
-              console.log(start.format('YYYY-MM-DD HH:mm:ss'));
+              // console.log(cd.format('YYYY-MM-DD HH:mm:ss'));
+              // console.log(start.format('YYYY-MM-DD HH:mm:ss'));
               if (start.isBefore(cd)) {
                 wsData[stIndex + 1].push(2);
               } else {
