@@ -23,13 +23,13 @@ export class AppComponent implements OnInit {
     data?: any;
   }> = new Map();
 
-  readonly labelTitle = 'Formsの結果を出席簿に集約する';
+  readonly labelTitle = 'Formsの結果を「出席簿」として集約する';
   readonly labelAboutExplains = [
-    'このWebアプリケーション（以下，アプリ）は，Microsoft 365のFormsから得られたエクセルファイルを１つのファイルにまとめ，出欠簿を作成します。',
-    'エクセルファイルの「メール」・「名前」・「開始時刻」・「合計得点」列を抽出し，集約・集計します。',
-    'Microsoft 365にログインしていない受講者（メール列が「anonymous」になっている受講生）の記録は集計しません。',
-    'アプリは端末内だけで処理が行われますので，あなたや受講生の記録がどこかに送られることは決してありません。',
-    'アプリはサーバーの無料枠で運用しています。利用者が多くなった場合，無料枠を超過して利用ができないかもしれません。その場合は月が変わってから再度お試しください。',
+    'このWebアプリケーション（以下，アプリ）は，Microsoft 365のFormsから得られたエクセルファイルを１つのファイルにまとめた「出席簿」を作成します。',
+    'エクセルファイルの「メール」・「名前」・「開始時刻」・「合計点数」列を抽出し，「メール」を軸として集約・集計します。',
+    'Microsoft 365にログインしていない（＝メール列が「anonymous」になっている）受講者の記録は集計しません。',
+    'アプリはこの画面が表示された端末内だけで処理が行われます。あなたや受講生の記録がどこかに送られることは決してありません。',
+    'アプリはサーバーの無料枠で運用しています。利用者が多くなった場合，無料枠を超過して利用できないかもしれません。その場合は月が変わってから再度お試しください。',
   ];
   readonly labelHowToTitle = '使い方';
   readonly labelHowToExplains = [
@@ -39,7 +39,7 @@ export class AppComponent implements OnInit {
   readonly labelStartTime = '開始時刻';
   readonly labelMail = 'メール';
   readonly labelName = '名前';
-  readonly labelTotal = '合計得点';
+  readonly labelTotal = '合計点数';
   maxDate: Date;
 
   mapStudent: Map<string, string> = new Map();
@@ -198,6 +198,7 @@ export class AppComponent implements OnInit {
             } else {
               wsData[stIndex + 1].push(2);
             }
+            // console.log(at[this.labelTotal]);
             if (Number.isFinite(Number(at[this.labelTotal]))) {
               wsData2[stIndex + 1].push(Number(at[this.labelTotal]));
             } else {

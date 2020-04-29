@@ -1,27 +1,17 @@
 # Attendance Summary with Forms
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 9.1.3.
+Microsoft 365に含まれるFormsから得られた複数のエクセルファイルを「出席簿」として集約するためのWebアプリケーションです。  
+オンライン講義などでFormsを用いて受講確認を行う場合などを想定して作成しました。
 
-## Development server
+[demo](https://attendance-summary-with-forms.netlify.app)
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
+「メール」列を軸として，「開始時刻」と「合計点数」から，それぞれ「出席簿」と「得点総計」シートを作成します。  
+そのため，受講生はMicrosoft 365にログインしていることが必須となります。
 
-## Code scaffolding
+## プライバシー
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+すべての作業は端末内のみで行われ，他のサーバーなどには一切の情報を送信しません。
 
-## Build
+## 開発環境など
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory. Use the `--prod` flag for a production build.
-
-## Running unit tests
-
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
-
-## Running end-to-end tests
-
-Run `ng e2e` to execute the end-to-end tests via [Protractor](http://www.protractortest.org/).
-
-## Further help
-
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI README](https://github.com/angular/angular-cli/blob/master/README.md).
+Angularなどを使って作成されています。

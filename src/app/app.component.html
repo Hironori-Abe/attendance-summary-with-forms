@@ -1,11 +1,16 @@
-<div fxLayout="column" fxLayoutGap="2vh">
+<!-- <a href="https://github.com/Hironori-Abe/attendance-summary-with-forms" style="position: fixed; top: 0; right: 0;"><img
+    width="149" height="149"
+    src="https://github.blog/wp-content/uploads/2008/12/forkme_right_darkblue_121621.png?resize=149%2C149"
+    class="attachment-full size-full" alt="Fork me on GitHub" data-recalc-dims="1"></a> -->
+
+<div fxLayout="column" fxLayoutGap="1vh">
   <span style="font-size: x-large; text-align: center; padding-top: 5vh;" class="full-width">
     {{labelTitle}}
   </span>
 
   <div fxFlex="nogrow" fxLayout="column" class="full-width padding-side">
     <p style="font-size: larger;" *ngFor="let text of labelAboutExplains; index as i" class="full-width">
-      {{i + 1}}: {{text}}
+      {{i + 1}}. {{text}}
     </p>
   </div>
 
@@ -15,7 +20,7 @@
 
   <div fxFlex="nogrow" fxLayout="column" class="full-width padding-side">
     <p style="font-size: larger;" *ngFor="let text of labelHowToExplains; index as i">
-      {{i + 1}}: {{text}}
+      {{i + 1}}. {{text}}
     </p>
   </div>
 
@@ -31,7 +36,7 @@
   <table mat-table [dataSource]="array(mapFileInfo.keys())" class="full-width">
 
     <ng-container matColumnDef="position">
-      <th mat-header-cell *matHeaderCellDef> No. </th>
+      <th mat-header-cell *matHeaderCellDef> No </th>
       <td mat-cell *matCellDef="let element; index as i"> {{ i + 1 }} </td>
     </ng-container>
 
@@ -41,7 +46,7 @@
     </ng-container>
 
     <ng-container matColumnDef="lateTime">
-      <th mat-header-cell *matHeaderCellDef> Deadline Time </th>
+      <th mat-header-cell *matHeaderCellDef> Deadline </th>
       <td mat-cell *matCellDef="let element">
         <mat-form-field fxFlex="nogrow">
           <mat-label>Date</mat-label>
