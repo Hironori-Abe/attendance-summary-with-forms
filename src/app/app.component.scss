@@ -7,3 +7,19 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
+
+.page-layout,
+.section-stack {
+    display: flex;
+    flex-direction: column;
+}
+
+.page-layout {
+    gap: 1vh;
+}
+
+.button-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

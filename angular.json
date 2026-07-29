@@ -44,7 +44,6 @@
               "optimization": true,
               "outputHashing": "all",
               "sourceMap": false,
-              "extractCss": true,
               "namedChunks": false,
               "extractLicenses": true,
               "vendorChunk": false,
@@ -67,18 +66,18 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "browserTarget": "attendance-summary-with-forms:build"
+            "buildTarget": "attendance-summary-with-forms:build"
           },
           "configurations": {
             "production": {
-              "browserTarget": "attendance-summary-with-forms:build:production"
+              "buildTarget": "attendance-summary-with-forms:build:production"
             }
           }
         },
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "attendance-summary-with-forms:build"
+            "buildTarget": "attendance-summary-with-forms:build"
           }
         },
         "test": {
@@ -98,36 +97,8 @@
             ],
             "scripts": []
           }
-        },
-        "lint": {
-          "builder": "@angular-devkit/build-angular:tslint",
-          "options": {
-            "tsConfig": [
-              "tsconfig.app.json",
-              "tsconfig.spec.json",
-              "e2e/tsconfig.json"
-            ],
-            "exclude": [
-              "**/node_modules/**"
-            ]
-          }
-        },
-        "e2e": {
-          "builder": "@angular-devkit/build-angular:protractor",
-          "options": {
-            "protractorConfig": "e2e/protractor.conf.js",
-            "devServerTarget": "attendance-summary-with-forms:serve"
-          },
-          "configurations": {
-            "production": {
-              "devServerTarget": "attendance-summary-with-forms:serve:production"
-            }
-          }
         }
       }
     }
-  },
-  "defaultProject": "attendance-summary-with-forms",
-  "cli": {
   }
 }

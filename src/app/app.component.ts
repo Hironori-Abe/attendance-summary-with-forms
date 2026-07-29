@@ -1,11 +1,12 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import * as moment from 'moment';
+import moment from 'moment';
 import { FileUploadControl } from '@iplab/ngx-file-upload';
 
 @Component({
   selector: 'app-root',
+  standalone: false,
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
