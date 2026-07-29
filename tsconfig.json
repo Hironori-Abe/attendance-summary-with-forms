@@ -1,12 +1,10 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
-    "baseUrl": "./",
     "outDir": "./dist/out-tsc",
     "sourceMap": true,
     "declaration": false,
     "esModuleInterop": true,
-    "downlevelIteration": true,
     "experimentalDecorators": true,
     "module": "preserve",
     "moduleResolution": "bundler",
@@ -19,7 +17,6 @@
     ]
   },
   "angularCompilerOptions": {
-    "fullTemplateTypeCheck": true,
     "strictInjectionParameters": true,
     "strictTemplates": true
   }

@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import * as XLSX from 'xlsx';
 import { MatDialog } from '@angular/material/dialog';
+import moment from 'moment';
 import { AppComponent } from './app.component';
 import { AppModule } from './app.module';
 import {
@@ -26,6 +27,24 @@ describe('AppComponent', () => {
     const app = fixture.componentInstance;
     expect(app.toColumnName(1)).toBe('A');
     expect(app.toColumnName(27)).toBe('AA');
+  });
+
+  it('should format a Forms timestamp as YY-MM-DD', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+
+    expect(app.formatLectureDate('07/29/26 10:05:00')).toBe('26-07-29');
+    expect(app.formatLectureDate('7/9/2026 9:05:00')).toBe('26-07-09');
+  });
+
+  it('should treat the exact deadline as on time and later submissions as late', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    const deadline = moment('2026-07-29');
+
+    expect(app.isSubmissionOnTime('07/29/26 10:00:00', deadline, '10:00')).toBeTrue();
+    expect(app.isSubmissionOnTime('07/29/26 10:00:01', deadline, '10:00')).toBeFalse();
+    expect(deadline.format('YYYY-MM-DD HH:mm:ss')).toBe('2026-07-29 00:00:00');
   });
 
   it('should calculate formula cells without cached values', () => {

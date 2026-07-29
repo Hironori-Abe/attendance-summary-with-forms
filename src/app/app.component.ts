@@ -19,6 +19,29 @@ import {
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
+  private readonly formsDateTimeFormats = [
+    'MM/DD/YY HH:mm:ss',
+    'MM/DD/YYYY HH:mm:ss',
+    'M/D/YY H:mm:ss',
+    'M/D/YYYY H:mm:ss',
+    'MM-DD-YY HH:mm:ss',
+    'MM-DD-YYYY HH:mm:ss',
+    'M-D-YY H:mm:ss',
+    'M-D-YYYY H:mm:ss',
+    'YYYY/M/D H:mm:ss',
+    'YYYY-M-D H:mm:ss',
+    'MM/DD/YY HH:mm',
+    'MM/DD/YYYY HH:mm',
+    'M/D/YY H:mm',
+    'M/D/YYYY H:mm',
+    'MM-DD-YY HH:mm',
+    'MM-DD-YYYY HH:mm',
+    'M-D-YY H:mm',
+    'M-D-YYYY H:mm',
+    'YYYY/M/D H:mm',
+    'YYYY-M-D H:mm',
+  ];
+
   public fileUploadControl = new FileUploadControl().setListVisibility(false);
   array = Array.from;
   displayedColumns = ['position', 'name', 'lateTime', 'clear'];
@@ -110,7 +133,9 @@ export class AppComponent implements OnInit {
           // console.log(jsonArray);
           jsonArray.forEach((j, jaIndex) => {
             if (jaIndex === 0) {
-              this.mapFileInfo.get(filename).columnDate = j[this.labelStartTime].split(' ')[0].replace(/\//g, '-');
+              this.mapFileInfo.get(filename).columnDate = this.formatLectureDate(
+                j[this.labelStartTime],
+              );
             }
             if (j && j[this.labelMail] && j[this.labelMail] !== 'anonymous') {
               this.mapStudent.set(j[this.labelMail], j[this.labelName]);
@@ -172,6 +197,37 @@ export class AppComponent implements OnInit {
     this.mapFileInfo.get(name).lateTime = time;
   }
 
+  formatLectureDate(startTime: string): string {
+    const parsed = moment(startTime, this.formsDateTimeFormats, true);
+    if (parsed.isValid()) {
+      return parsed.format('YY-MM-DD');
+    }
+
+    // Preserve the source value when an unexpected format is encountered.
+    return String(startTime ?? '').split(' ')[0].replace(/\//g, '-');
+  }
+
+  isSubmissionOnTime(
+    startTime: string,
+    deadline: moment.Moment,
+    deadlineTime: string,
+  ): boolean {
+    const start = moment(startTime, this.formsDateTimeFormats, true);
+    if (!start.isValid()) {
+      return false;
+    }
+
+    const cutoff = deadline.clone();
+    if (deadlineTime) {
+      const [hour, minute] = deadlineTime.split(':').map(Number);
+      cutoff.hour(hour).minute(minute).second(0).millisecond(0);
+    } else {
+      cutoff.endOf('day');
+    }
+
+    return start.isSameOrBefore(cutoff);
+  }
+
   clearFile(name: string) {
     this.mapFileInfo.delete(name);
     const d = this.fileUploadControl.value.filter(f => {
@@ -224,20 +280,11 @@ export class AppComponent implements OnInit {
         value.data.forEach(at => {
           if (mail === at[this.labelMail]) {
             if (value.lateDate) {
-              const cd = value.lateDate;
-              const ct = value.lateTime.split(':');
-              // cd.add(Number(ct[0]), 'hour').add(Number(ct[1]) + 1, 'minute');
-              if (value.lateTime) {
-                cd.hour(Number(ct[0]));
-                cd.minute(Number(ct[1]));
-              } else {
-                cd.add(1, 'days');
-              }
-              // console.log(at[this.labelStartTime]);
-              const start = moment(at[this.labelStartTime], 'MM/DD/YY HH:mm:ss');
-              // console.log(cd.format('YYYY-MM-DD HH:mm:ss'));
-              // console.log(start.format('YYYY-MM-DD HH:mm:ss'));
-              if (start.isBefore(cd)) {
+              if (this.isSubmissionOnTime(
+                at[this.labelStartTime],
+                value.lateDate,
+                value.lateTime,
+              )) {
                 wsData[stIndex + 1].push(2);
               } else {
                 wsData[stIndex + 1].push(1);
