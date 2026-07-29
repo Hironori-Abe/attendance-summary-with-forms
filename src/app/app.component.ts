@@ -3,6 +3,14 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import moment from 'moment';
 import { FileUploadControl } from '@iplab/ngx-file-upload';
+import { MatDialog } from '@angular/material/dialog';
+import {
+  findUncalculatedNumericFormulas,
+  readCalculatedWorkbook,
+} from './workbook-formula-calculator';
+import {
+  FormulaCalculationWarningDialogComponent,
+} from './formula-calculation-warning-dialog.component';
 
 @Component({
   selector: 'app-root',
@@ -47,9 +55,13 @@ export class AppComponent implements OnInit {
 
   idTimeout: any = null;
   processing = false;
+  private fileLoadGeneration = 0;
+  private pendingFileLoads = 0;
+  private formulaCalculationWarnings = new Map<string, number>();
 
   constructor(
     private ref: ChangeDetectorRef,
+    private dialog: MatDialog,
   ) {
     this.maxDate = new Date();
   }
@@ -57,9 +69,11 @@ export class AppComponent implements OnInit {
   ngOnInit() {
     this.fileUploadControl.acceptFiles('.xlsx');
     this.fileUploadControl.valueChanges.subscribe(files => {
+      const loadGeneration = ++this.fileLoadGeneration;
       // console.log(files);
       this.mapStudent.clear();
       this.mapFileInfo.clear();
+      this.formulaCalculationWarnings.clear();
       let duplicate = false;
       files.forEach(f => {
         if (!this.mapFileInfo.has(f.name)) {
@@ -75,13 +89,22 @@ export class AppComponent implements OnInit {
           duplicate = true;
         }
       });
+      this.pendingFileLoads = this.mapFileInfo.size;
       this.mapFileInfo.forEach((value, filename, map) => {
         const reader: FileReader = new FileReader();
         reader.onload = (e: any) => {
+          if (loadGeneration !== this.fileLoadGeneration) {
+            return;
+          }
+
           const data = new Uint8Array(e.target.result);
-          const wb = XLSX.read(data, { type: 'array' });
+          const wb = readCalculatedWorkbook(data);
           const wsname: string = wb.SheetNames[0];
           const ws: XLSX.WorkSheet = wb.Sheets[wsname];
+          const formulaFailures = findUncalculatedNumericFormulas(ws, this.labelTotal);
+          if (formulaFailures.length > 0) {
+            this.formulaCalculationWarnings.set(filename, formulaFailures.length);
+          }
 
           const jsonArray = XLSX.utils.sheet_to_json(ws, { raw: false });
           // console.log(jsonArray);
@@ -106,9 +129,32 @@ export class AppComponent implements OnInit {
             // console.log(temp);
             this.mapStudent = newMap;
           }, 100);
+          this.finishFileLoad(loadGeneration);
         };
+        reader.onerror = () => this.finishFileLoad(loadGeneration);
         reader.readAsArrayBuffer(value.file);
       });
+    });
+  }
+
+  private finishFileLoad(loadGeneration: number) {
+    if (loadGeneration !== this.fileLoadGeneration) {
+      return;
+    }
+
+    this.pendingFileLoads--;
+    if (this.pendingFileLoads !== 0 || this.formulaCalculationWarnings.size === 0) {
+      return;
+    }
+
+    this.dialog.open(FormulaCalculationWarningDialogComponent, {
+      data: {
+        files: Array.from(this.formulaCalculationWarnings, ([fileName, failureCount]) => ({
+          fileName,
+          failureCount,
+        })),
+      },
+      maxWidth: '640px',
     });
   }
 
