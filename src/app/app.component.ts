@@ -1,7 +1,6 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
-import * as XLSX from 'xlsx';
+import { afterNextRender, Component, DOCUMENT, inject, Injector, OnInit, computed, signal } from '@angular/core';
+import type * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import moment from 'moment';
 import { FileUploadControl } from '@iplab/ngx-file-upload';
 import { MatDialog } from '@angular/material/dialog';
 import {
@@ -11,6 +10,19 @@ import {
 import {
   FormulaCalculationWarningDialogComponent,
 } from './formula-calculation-warning-dialog.component';
+import { formatShortDate, formatTimestamp, parseFormsDateTime } from './forms-date';
+import { loadXlsx } from './xlsx-loader';
+
+type AttendanceRow = Record<string, unknown>;
+
+interface FileInfo {
+  file: File;
+  columnDate?: string;
+  lateDate: Date | null;
+  lateTime: string;
+  order: number;
+  data?: AttendanceRow[];
+}
 
 @Component({
   selector: 'app-root',
@@ -19,41 +31,14 @@ import {
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
-  private readonly formsDateTimeFormats = [
-    'MM/DD/YY HH:mm:ss',
-    'MM/DD/YYYY HH:mm:ss',
-    'M/D/YY H:mm:ss',
-    'M/D/YYYY H:mm:ss',
-    'MM-DD-YY HH:mm:ss',
-    'MM-DD-YYYY HH:mm:ss',
-    'M-D-YY H:mm:ss',
-    'M-D-YYYY H:mm:ss',
-    'YYYY/M/D H:mm:ss',
-    'YYYY-M-D H:mm:ss',
-    'MM/DD/YY HH:mm',
-    'MM/DD/YYYY HH:mm',
-    'M/D/YY H:mm',
-    'M/D/YYYY H:mm',
-    'MM-DD-YY HH:mm',
-    'MM-DD-YYYY HH:mm',
-    'M-D-YY H:mm',
-    'M-D-YYYY H:mm',
-    'YYYY/M/D H:mm',
-    'YYYY-M-D H:mm',
-  ];
-
   public fileUploadControl = new FileUploadControl().setListVisibility(false);
-  array = Array.from;
-  displayedColumns = ['position', 'name', 'lateTime', 'clear'];
+  displayedColumns = ['position', 'name', 'date', 'lateTime', 'clear'];
 
-  mapFileInfo: Map<string, {
-    file: File;
-    columnDate?: string;
-    lateDate: moment.Moment;
-    lateTime: string;
-    order: number;
-    data?: any;
-  }> = new Map();
+  private readonly injector = inject(Injector);
+  private readonly document = inject(DOCUMENT);
+
+  readonly mapFileInfo = signal(new Map<string, FileInfo>());
+  readonly fileNames = computed(() => Array.from(this.mapFileInfo().keys()));
 
   readonly labelTitle = 'Formsの結果を「出席簿」として集約する';
   readonly labelAboutExplains = [
@@ -74,16 +59,15 @@ export class AppComponent implements OnInit {
   readonly labelTotal = '合計点数';
   maxDate: Date;
 
-  mapStudent: Map<string, string> = new Map();
+  readonly mapStudent = signal(new Map<string, string>());
 
-  idTimeout: any = null;
-  processing = false;
+  idTimeout: ReturnType<typeof setTimeout> | null = null;
+  readonly processing = signal(false);
   private fileLoadGeneration = 0;
   private pendingFileLoads = 0;
   private formulaCalculationWarnings = new Map<string, number>();
 
   constructor(
-    private ref: ChangeDetectorRef,
     private dialog: MatDialog,
   ) {
     this.maxDate = new Date();
@@ -94,67 +78,101 @@ export class AppComponent implements OnInit {
     this.fileUploadControl.valueChanges.subscribe(files => {
       const loadGeneration = ++this.fileLoadGeneration;
       // console.log(files);
-      this.mapStudent.clear();
-      this.mapFileInfo.clear();
+      if (this.idTimeout !== null) {
+        clearTimeout(this.idTimeout);
+        this.idTimeout = null;
+      }
+      this.mapStudent.set(new Map());
+      this.mapFileInfo.set(new Map());
       this.formulaCalculationWarnings.clear();
-      let duplicate = false;
+      const nextFileInfo = new Map<string, FileInfo>();
       files.forEach(f => {
-        if (!this.mapFileInfo.has(f.name)) {
-          this.mapFileInfo.set(f.name, {
+        if (!nextFileInfo.has(f.name)) {
+          nextFileInfo.set(f.name, {
             file: f,
             lateDate: null,
             lateTime: '',
             order: 0,
           });
-          this.ref.detectChanges();
         } else {
           this.fileUploadControl.removeFile(f);
-          duplicate = true;
         }
       });
-      this.pendingFileLoads = this.mapFileInfo.size;
-      this.mapFileInfo.forEach((value, filename, map) => {
+      this.mapFileInfo.set(nextFileInfo);
+      this.pendingFileLoads = nextFileInfo.size;
+      nextFileInfo.forEach((value, filename) => {
         const reader: FileReader = new FileReader();
-        reader.onload = (e: any) => {
+        reader.onload = async (e: any) => {
           if (loadGeneration !== this.fileLoadGeneration) {
             return;
           }
 
-          const data = new Uint8Array(e.target.result);
-          const wb = readCalculatedWorkbook(data);
-          const wsname: string = wb.SheetNames[0];
-          const ws: XLSX.WorkSheet = wb.Sheets[wsname];
-          const formulaFailures = findUncalculatedNumericFormulas(ws, this.labelTotal);
-          if (formulaFailures.length > 0) {
-            this.formulaCalculationWarnings.set(filename, formulaFailures.length);
-          }
-
-          const jsonArray = XLSX.utils.sheet_to_json(ws, { raw: false });
-          // console.log(jsonArray);
-          jsonArray.forEach((j, jaIndex) => {
-            if (jaIndex === 0) {
-              this.mapFileInfo.get(filename).columnDate = this.formatLectureDate(
-                j[this.labelStartTime],
-              );
+          try {
+            const data = new Uint8Array(e.target.result);
+            const wb = await readCalculatedWorkbook(data);
+            const xlsx = await loadXlsx();
+            if (loadGeneration !== this.fileLoadGeneration || !this.mapFileInfo().has(filename)) {
+              return;
             }
-            if (j && j[this.labelMail] && j[this.labelMail] !== 'anonymous') {
-              this.mapStudent.set(j[this.labelMail], j[this.labelName]);
+            const wsname: string = wb.SheetNames[0];
+            const ws: XLSX.WorkSheet = wb.Sheets[wsname];
+            const formulaFailures = await findUncalculatedNumericFormulas(ws, this.labelTotal);
+            if (formulaFailures.length > 0) {
+              const nextWarnings = new Map(this.formulaCalculationWarnings);
+              nextWarnings.set(filename, formulaFailures.length);
+              this.formulaCalculationWarnings = nextWarnings;
             }
-          });
-          this.mapFileInfo.get(filename).data = jsonArray;
 
-          this.idTimeout = setTimeout(() => {
-            clearTimeout(this.idTimeout);
-            const newMap: Map<string, string> = new Map();
-            const temp = Array.from(this.mapStudent.keys());
-            temp.sort();
-            temp.forEach(t => {
-              newMap.set(t, this.mapStudent.get(t));
+            const jsonArray = xlsx.utils.sheet_to_json<AttendanceRow>(ws, { raw: false });
+            // console.log(jsonArray);
+            let columnDate: string | undefined;
+            const nextStudents = new Map(this.mapStudent());
+            jsonArray.forEach((j, jaIndex) => {
+              if (jaIndex === 0) {
+                columnDate = this.formatLectureDate(j[this.labelStartTime] as string);
+              }
+              const mail = j[this.labelMail] as string | undefined;
+              if (mail && mail !== 'anonymous') {
+                nextStudents.set(mail, j[this.labelName] as string);
+              }
             });
-            // console.log(temp);
-            this.mapStudent = newMap;
-          }, 100);
-          this.finishFileLoad(loadGeneration);
+            this.mapStudent.set(nextStudents);
+
+            const currentFileInfo = this.mapFileInfo().get(filename);
+            if (!currentFileInfo) {
+              return;
+            }
+            const nextFileInfo = new Map(this.mapFileInfo());
+            nextFileInfo.set(filename, {
+              ...currentFileInfo,
+              columnDate,
+              data: jsonArray,
+            });
+            this.mapFileInfo.set(nextFileInfo);
+
+            if (this.idTimeout !== null) {
+              clearTimeout(this.idTimeout);
+            }
+            this.idTimeout = setTimeout(() => {
+              this.idTimeout = null;
+              if (loadGeneration !== this.fileLoadGeneration) {
+                return;
+              }
+              const newMap: Map<string, string> = new Map();
+              const temp = Array.from(this.mapStudent().keys());
+              temp.sort();
+              temp.forEach(t => {
+                const name = this.mapStudent().get(t);
+                if (name !== undefined) {
+                  newMap.set(t, name);
+                }
+              });
+              // console.log(temp);
+              this.mapStudent.set(newMap);
+            }, 100);
+          } finally {
+            this.finishFileLoad(loadGeneration);
+          }
         };
         reader.onerror = () => this.finishFileLoad(loadGeneration);
         reader.readAsArrayBuffer(value.file);
@@ -183,24 +201,51 @@ export class AppComponent implements OnInit {
     });
   }
 
-  clickTimepicker(ev: Event) {
-    ev.stopPropagation();
+  changeDate(name: string, date: Date) {
+    // console.log('name: %s date: %O', name, date);
+    const fileInfo = this.mapFileInfo().get(name);
+    if (fileInfo) {
+      const nextFileInfo = new Map(this.mapFileInfo());
+      nextFileInfo.set(name, {...fileInfo, lateDate: date});
+      this.mapFileInfo.set(nextFileInfo);
+    }
   }
 
-  changeDate(name: string, date: moment.Moment) {
-    // console.log('name: %s date(moment): %O', name, date);
-    this.mapFileInfo.get(name).lateDate = date;
+  changeTime(name: string, time: Date) {
+    // console.log('name: %s time: %O', name, time);
+    const hour = String(time.getHours()).padStart(2, '0');
+    const minute = String(time.getMinutes()).padStart(2, '0');
+    const fileInfo = this.mapFileInfo().get(name);
+    if (fileInfo) {
+      const nextFileInfo = new Map(this.mapFileInfo());
+      nextFileInfo.set(name, {...fileInfo, lateTime: `${hour}:${minute}`});
+      this.mapFileInfo.set(nextFileInfo);
+    }
   }
 
-  changeTime(name: string, time: string) {
-    // console.log('name: %s time: %s', name, time);
-    this.mapFileInfo.get(name).lateTime = time;
+  scrollTimepickerToMorning() {
+    afterNextRender(() => {
+      const panel = this.document.querySelector<HTMLElement>(
+        '.mat-timepicker-panel:not(.mat-timepicker-panel-exit)',
+      );
+      const morningOption = Array.from(
+        panel?.querySelectorAll<HTMLElement>('mat-option') ?? [],
+      ).find(option => {
+        const [hour, minute] = option.textContent?.trim().split(':') ?? [];
+        return Number(hour) === 9 && minute === '00';
+      });
+
+      morningOption?.scrollIntoView({
+        block: 'center',
+        inline: 'nearest',
+      });
+    }, { injector: this.injector });
   }
 
   formatLectureDate(startTime: string): string {
-    const parsed = moment(startTime, this.formsDateTimeFormats, true);
-    if (parsed.isValid()) {
-      return parsed.format('YY-MM-DD');
+    const parsed = parseFormsDateTime(startTime);
+    if (parsed) {
+      return formatShortDate(parsed);
     }
 
     // Preserve the source value when an unexpected format is encountered.
@@ -209,31 +254,35 @@ export class AppComponent implements OnInit {
 
   isSubmissionOnTime(
     startTime: string,
-    deadline: moment.Moment,
+    deadline: Date,
     deadlineTime: string,
   ): boolean {
-    const start = moment(startTime, this.formsDateTimeFormats, true);
-    if (!start.isValid()) {
+    const start = parseFormsDateTime(startTime);
+    if (!start) {
       return false;
     }
 
-    const cutoff = deadline.clone();
+    const cutoff = new Date(deadline);
     if (deadlineTime) {
       const [hour, minute] = deadlineTime.split(':').map(Number);
-      cutoff.hour(hour).minute(minute).second(0).millisecond(0);
+      cutoff.setHours(hour, minute, 0, 0);
     } else {
-      cutoff.endOf('day');
+      cutoff.setHours(23, 59, 59, 999);
     }
 
-    return start.isSameOrBefore(cutoff);
+    return start.getTime() <= cutoff.getTime();
   }
 
   clearFile(name: string) {
-    this.mapFileInfo.delete(name);
+    const nextFileInfo = new Map(this.mapFileInfo());
+    nextFileInfo.delete(name);
+    this.mapFileInfo.set(nextFileInfo);
     const d = this.fileUploadControl.value.filter(f => {
       return f.name === name;
     });
-    this.fileUploadControl.removeFile(d[0]);
+    if (d[0]) {
+      this.fileUploadControl.removeFile(d[0]);
+    }
   }
 
   /**
@@ -251,76 +300,80 @@ export class AppComponent implements OnInit {
     return ret;
   }
 
-  createSummary() {
-    // console.log(this.mapStudent);
-    this.processing = true;
-    this.ref.markForCheck();
+  async createSummary() {
+    // console.log(this.mapStudent());
+    this.processing.set(true);
+    try {
+      const xlsx = await loadXlsx();
+      const newWB = xlsx.utils.book_new();
+      const wsData: Array<Array<any>> = [
+        [this.labelMail, this.labelName, 'Total']
+      ];
+      const wsData2: Array<Array<any>> = JSON.parse(JSON.stringify(wsData));
+      const fileInfoMap = this.mapFileInfo();
+      const studentMap = this.mapStudent();
 
-    const newWB = XLSX.utils.book_new();
-    const wsData: Array<Array<any>> = [
-      [this.labelMail, this.labelName, 'Total']
-    ];
-    const wsData2: Array<Array<any>> = JSON.parse(JSON.stringify(wsData));
+      fileInfoMap.forEach(d => {
+        wsData[0].push(d.columnDate);
+        wsData2[0].push(d.columnDate);
+      });
+      wsData[0].push('Attend -> 2  Be late -> 1');
+      const column = this.toColumnName(fileInfoMap.size + 3);
+      // console.log('column:', column);
+      let stIndex = 0;
+      studentMap.forEach((name, mail) => {
+        wsData.push([mail, name, { f: `SUM(D${stIndex + 2}:${column}${stIndex + 2})` }]);
+        wsData2.push([mail, name, { f: `SUM(D${stIndex + 2}:${column}${stIndex + 2})` }]);
 
-    this.mapFileInfo.forEach(d => {
-      wsData[0].push(d.columnDate);
-      wsData2[0].push(d.columnDate);
-    });
-    wsData[0].push('Attend -> 2  Be late -> 1');
-    const column = this.toColumnName(this.mapFileInfo.size + 3);
-    // console.log('column:', column);
-    let stIndex = 0;
-    this.mapStudent.forEach((name, mail, map) => {
-      wsData.push([mail, name, { f: `SUM(D${stIndex + 2}:${column}${stIndex + 2})` }]);
-      wsData2.push([mail, name, { f: `SUM(D${stIndex + 2}:${column}${stIndex + 2})` }]);
-
-      this.mapFileInfo.forEach(value => {
-        // console.log(value);
-        let exist = false;
-        value.data.forEach(at => {
-          if (mail === at[this.labelMail]) {
-            if (value.lateDate) {
-              if (this.isSubmissionOnTime(
-                at[this.labelStartTime],
-                value.lateDate,
-                value.lateTime,
-              )) {
-                wsData[stIndex + 1].push(2);
+        fileInfoMap.forEach(value => {
+          // console.log(value);
+          let exist = false;
+          (value.data ?? []).forEach(at => {
+            if (mail === at[this.labelMail]) {
+              if (value.lateDate) {
+                if (this.isSubmissionOnTime(
+                  at[this.labelStartTime] as string,
+                  value.lateDate,
+                  value.lateTime,
+                )) {
+                  wsData[stIndex + 1].push(2);
+                } else {
+                  wsData[stIndex + 1].push(1);
+                }
               } else {
-                wsData[stIndex + 1].push(1);
+                wsData[stIndex + 1].push(2);
               }
-            } else {
-              wsData[stIndex + 1].push(2);
+              // console.log(at[this.labelTotal]);
+              if (Number.isFinite(Number(at[this.labelTotal]))) {
+                wsData2[stIndex + 1].push(Number(at[this.labelTotal]));
+              } else {
+                wsData2[stIndex + 1].push(0);
+              }
+              exist = true;
             }
-            // console.log(at[this.labelTotal]);
-            if (Number.isFinite(Number(at[this.labelTotal]))) {
-              wsData2[stIndex + 1].push(Number(at[this.labelTotal]));
-            } else {
-              wsData2[stIndex + 1].push(0);
-            }
-            exist = true;
+          });
+          if (!exist) {
+            wsData[stIndex + 1].push(0);
+            wsData2[stIndex + 1].push(0);
           }
         });
-        if (!exist) {
-          wsData[stIndex + 1].push(0);
-          wsData2[stIndex + 1].push(0);
-        }
+        stIndex++;
       });
-      if (stIndex === map.size - 1) {
-        let newWS = XLSX.utils.aoa_to_sheet(wsData);
-        let newWS2 = XLSX.utils.aoa_to_sheet(wsData2);
 
-        XLSX.utils.book_append_sheet(newWB, newWS, 'Attendance');
-        XLSX.utils.book_append_sheet(newWB, newWS2, 'Score');
+      if (studentMap.size > 0) {
+        const newWS = xlsx.utils.aoa_to_sheet(wsData);
+        const newWS2 = xlsx.utils.aoa_to_sheet(wsData2);
 
-        var wopts: XLSX.WritingOptions = { bookType: 'xlsx', bookSST: false, type: 'array' };
-        const wbout = XLSX.write(newWB, wopts);
-        const current = moment().format('YYYYMMDD-HHmmss')
+        xlsx.utils.book_append_sheet(newWB, newWS, 'Attendance');
+        xlsx.utils.book_append_sheet(newWB, newWS2, 'Score');
+
+        const wopts: XLSX.WritingOptions = { bookType: 'xlsx', bookSST: false, type: 'array' };
+        const wbout = xlsx.write(newWB, wopts);
+        const current = formatTimestamp(new Date());
         saveAs(new Blob([wbout], { type: "application/octet-stream" }), `attendance-${current}.xlsx`);
-        this.processing = false;
-        this.ref.markForCheck();
       }
-      stIndex++;
-    });
+    } finally {
+      this.processing.set(false);
+    }
   }
 }
