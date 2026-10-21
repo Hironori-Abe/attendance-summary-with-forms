@@ -9,7 +9,7 @@ import { AppModule } from './app.module';
 
 @Component({
   selector: 'test-deadline-time-input',
-  standalone: false,
+  imports: [MatFormFieldModule, MatInputModule, MatTimepickerModule],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <mat-form-field>
@@ -32,8 +32,7 @@ class DeadlineTimeInputHostComponent {
 describe('deadline time input', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [AppModule, MatFormFieldModule, MatInputModule, MatTimepickerModule],
-      declarations: [DeadlineTimeInputHostComponent],
+      imports: [AppModule, DeadlineTimeInputHostComponent],
     }).compileComponents();
   });
 
@@ -55,7 +54,7 @@ describe('deadline time input', () => {
     fixture.detectChanges();
 
     expect(timeInput.value).toBe('10:30');
-    expect(host.selectedTime instanceof Date).toBeTrue();
+    expect(host.selectedTime instanceof Date).toBe(true);
     expect(host.selectedTime?.getHours()).toBe(10);
     expect(host.selectedTime?.getMinutes()).toBe(30);
   });

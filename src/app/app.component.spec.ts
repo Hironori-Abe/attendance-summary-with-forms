@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 import * as XLSX from 'xlsx';
 import { MatDialog } from '@angular/material/dialog';
 import { AppComponent } from './app.component';
@@ -24,6 +25,10 @@ describe('AppComponent', () => {
     await TestBed.configureTestingModule({
       imports: [AppModule],
     }).compileComponents();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('should create the app', () => {
@@ -52,11 +57,11 @@ describe('AppComponent', () => {
     const app = fixture.componentInstance;
     const deadline = new Date(2026, 6, 29);
 
-    expect(app.isSubmissionOnTime('07/29/26 10:00:00', deadline, '10:00')).toBeTrue();
-    expect(app.isSubmissionOnTime('07/29/26 10:00:01', deadline, '10:00')).toBeFalse();
+    expect(app.isSubmissionOnTime('07/29/26 10:00:00', deadline, '10:00')).toBe(true);
+    expect(app.isSubmissionOnTime('07/29/26 10:00:01', deadline, '10:00')).toBe(false);
     // 締切時刻の指定がない場合はその日の終わりまでを許容する。
-    expect(app.isSubmissionOnTime('07/29/26 23:59:59', deadline, '')).toBeTrue();
-    expect(app.isSubmissionOnTime('07/30/26 00:00:00', deadline, '')).toBeFalse();
+    expect(app.isSubmissionOnTime('07/29/26 23:59:59', deadline, '')).toBe(true);
+    expect(app.isSubmissionOnTime('07/30/26 00:00:00', deadline, '')).toBe(false);
     // 日付ピッカーが渡す値は日付の 0 時ちょうどで、比較で書き換えられない。
     expect(formatTimestamp(deadline)).toBe('20260729-000000');
   });
@@ -172,28 +177,15 @@ describe('AppComponent', () => {
     );
     expect(appRoot.scrollWidth).toBeLessThanOrEqual(appRoot.clientWidth);
 
-    // Karma's Jasmine reporter is outside the application and has a 2px negative-margin
-    // overflow. Hide only that runner element while measuring the application's document.
-    const karmaReporter = document.querySelector<HTMLElement>('.jasmine_html-reporter');
-    const originalReporterDisplay = karmaReporter?.style.display;
-    if (karmaReporter) {
-      karmaReporter.style.display = 'none';
-    }
-    try {
-      expect(document.documentElement.scrollWidth)
-        .toBeLessThanOrEqual(document.documentElement.clientWidth);
-    } finally {
-      if (karmaReporter) {
-        karmaReporter.style.display = originalReporterDisplay ?? '';
-      }
-    }
+    expect(document.documentElement.scrollWidth)
+      .toBeLessThanOrEqual(document.documentElement.clientWidth);
   });
 
   it('should show one warning dialog after all files finish loading', () => {
     const fixture = TestBed.createComponent(AppComponent);
     const app = fixture.componentInstance;
     const dialog = TestBed.inject(MatDialog);
-    const openSpy = spyOn(dialog, 'open');
+    const openSpy = vi.spyOn(dialog, 'open').mockReturnValue(undefined as any);
     const internalApp = app as any;
 
     internalApp.pendingFileLoads = 1;
@@ -201,7 +193,7 @@ describe('AppComponent', () => {
     internalApp.finishFileLoad(0);
 
     expect(openSpy).toHaveBeenCalledTimes(1);
-    const dialogConfig = openSpy.calls.mostRecent().args[1] as any;
+    const dialogConfig = openSpy.mock.lastCall?.[1] as any;
     expect(dialogConfig.data.files).toEqual([
       {
         fileName: '未対応の数式.xlsx',

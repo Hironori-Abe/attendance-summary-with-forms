@@ -17,7 +17,13 @@ import { FormulaCalculationWarningDialogComponent } from './formula-calculation-
 
 @Component({
   selector: 'test-material-overlay-host',
-  standalone: false,
+  imports: [
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatNativeDateModule,
+    MatTimepickerModule,
+  ],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <mat-form-field>
@@ -61,8 +67,8 @@ describe('Material overlays without the legacy animation module', () => {
         MatInputModule,
         MatNativeDateModule,
         MatTimepickerModule,
+        MaterialOverlayHostComponent,
       ],
-      declarations: [MaterialOverlayHostComponent],
     }).compileComponents();
 
     overlayContainer = TestBed.inject(OverlayContainer);
@@ -86,7 +92,7 @@ describe('Material overlays without the legacy animation module', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(datepicker.opened).toBeTrue();
+    expect(datepicker.opened).toBe(true);
     const overlay = overlayContainer.getContainerElement();
     expect(overlay.querySelector('mat-datepicker-content')).not.toBeNull();
     expect(overlay.querySelectorAll('.mat-calendar-body-cell').length).toBeGreaterThan(0);
@@ -105,12 +111,12 @@ describe('Material overlays without the legacy animation module', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(timepicker.isOpen()).toBeTrue();
+    expect(timepicker.isOpen()).toBe(true);
     const timepickerPanel = document.body.querySelector('.mat-timepicker-panel');
     expect(timepickerPanel).not.toBeNull();
     const options = timepickerPanel?.querySelectorAll('mat-option') ?? [];
     expect(options.length).toBeGreaterThan(0);
-    expect(Array.from(options).some(option => option.textContent?.trim() === '10:30')).toBeTrue();
+    expect(Array.from(options).some(option => option.textContent?.trim() === '10:30')).toBe(true);
   });
 
   it('scrolls the app timepicker to 09:00 after it opens', async () => {

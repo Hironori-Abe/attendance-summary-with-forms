@@ -76,20 +76,13 @@
           }
         },
         "test": {
-          "builder": "@angular/build:karma",
+          "builder": "@angular/build:unit-test",
           "options": {
-            "main": "src/test.ts",
+            "buildTarget": "attendance-summary-with-forms:build",
             "tsConfig": "tsconfig.spec.json",
-            "karmaConfig": "karma.conf.js",
-            "assets": [
-              "src/favicon.ico",
-              "src/assets"
-            ],
-            "styles": [
-              "./node_modules/@angular/material/prebuilt-themes/indigo-pink.css",
-              "src/styles.scss"
-            ],
-            "scripts": []
+            "runner": "vitest",
+            "browsers": ["chromiumHeadless"],
+            "coverageReporters": ["html", "lcovonly", "text-summary"]
           }
         }
       }
